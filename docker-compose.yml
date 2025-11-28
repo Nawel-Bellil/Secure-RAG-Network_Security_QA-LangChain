@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  # App Instance 1
+  app1:
+    build: .
+    container_name: rag_app_instance_1
+    environment:
+      - GROQ_API_KEY=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
+      - INSTANCE_ID=instance-1
+    volumes:
+      - app1_data:/app/chroma_db
+    ports:
+      - "8001:8000"
+    networks:
+      - rag_network
+    restart: unless-stopped
+
+  # App Instance 2
+  app2:
+    build: .
+    container_name: rag_app_instance_2
+    environment:
+      - GROQ_API_KEY=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
+      - INSTANCE_ID=instance-2
+    volumes:
+      - app2_data:/app/chroma_db
+    ports:
+      - "8002:8000"
+    networks:
+      - rag_network
+    restart: unless-stopped
+
+  # App Instance 3
+  app3:
+    build: .
+    container_name: rag_app_instance_3
+    environment:
+      - GROQ_API_KEY=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
+      - INSTANCE_ID=instance-3
+    volumes:
+      - app3_data:/app/chroma_db
+    ports:
+      - "8003:8000"
+    networks:
+      - rag_network
+    restart: unless-stopped
+
+  # NGINX Load Balancer
+  nginx:
+    image: nginx:alpine
+    container_name: nginx_load_balancer
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "80:80"
+    depends_on:
+      - app1
+      - app2
+      - app3
+    networks:
+      - rag_network
+    restart: unless-stopped
+
+networks:
+  rag_network:
+    driver: bridge
+
+volumes:
+  app1_data:
+  app2_data:
+  app3_data:
