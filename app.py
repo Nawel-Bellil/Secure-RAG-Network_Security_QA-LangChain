@@ -1,33 +1,30 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from pydantic import BaseModel
-from typing import List
-import shutil
 import os
 import uvicorn
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
-from langchain_community.document_loaders import TextLoader
 from langchain_groq import ChatGroq
-from langchain.chains import RetrievalQA
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_community.document_loaders import TextLoader
 import tempfile
+import shutil
 
-
-# intialize FastAPI app
+# Initialize FastAPI
 app = FastAPI(title="RAG Document Q&A System")
 
-# global variables for vector store and qa chain
+# Global variables
 vector_store = None
-qa_chain = None
 
-# configuration
+# Configuration
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "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")
 INSTANCE_ID = os.getenv("INSTANCE_ID", "unknown")
 
-# initialize embeddings model
-embeddings_model = HuggingFaceEmbeddings(
+# Initialize embeddings
+embeddings = HuggingFaceEmbeddings(
     model_name="sentence-transformers/all-MiniLM-L6-v2",
-    model_kwargs={"device": "cpu"})
+    model_kwargs={'device': 'cpu'}
+)
 
 # Initialize LLM
 llm = ChatGroq(
@@ -55,11 +52,8 @@ async def root():
 
 @app.post("/upload")
 async def upload_document(file: UploadFile = File(...)):
-    """
-    Upload a text document to the vector store.
-    This splits the document into chunks and stores embeddings.
-    """
-    global vector_store, qa_chain
+    """Upload a text document to the vector store"""
+    global vector_store
     
     try:
         # Save uploaded file temporarily
@@ -89,14 +83,6 @@ async def upload_document(file: UploadFile = File(...)):
         else:
             vector_store.add_documents(texts)
         
-        # Create QA chain
-        qa_chain = RetrievalQA.from_chain_type(
-            llm=llm,
-            chain_type="stuff",
-            retriever=vector_store.as_retriever(search_kwargs={"k": 3}),
-            return_source_documents=True
-        )
-        
         # Clean up temp file
         os.unlink(tmp_file_path)
         
@@ -112,26 +98,43 @@ async def upload_document(file: UploadFile = File(...)):
 
 @app.post("/ask", response_model=AnswerResponse)
 async def ask_question(request: QuestionRequest):
-    """
-    Ask a question about the uploaded documents.
-    Uses RAG to retrieve relevant context and generate an answer.
-    """
-    global qa_chain
+    """Ask a question about the uploaded documents"""
+    global vector_store
     
-    if qa_chain is None:
+    if vector_store is None:
         raise HTTPException(
             status_code=400,
             detail="No documents uploaded yet. Please upload a document first."
         )
     
     try:
-        # Query the RAG chain
-        result = qa_chain.invoke({"query": request.question})
+        # Search for relevant documents (manual RAG - no chains needed!)
+        retriever = vector_store.as_retriever(search_kwargs={"k": 3})
+        relevant_docs = retriever.invoke(request.question)
+        
+        # Build context from retrieved documents
+        context = "\n\n".join([doc.page_content for doc in relevant_docs])
+        
+        # Create prompt manually
+        prompt = f"""Answer the question based on the following context:
+
+Context:
+{context}
+
+Question: {request.question}
+
+Answer:"""
+        
+        # Get answer from LLM
+        response = llm.invoke(prompt)
+        
+        # Extract text from response
+        answer_text = response.content if hasattr(response, 'content') else str(response)
         
         return AnswerResponse(
-            answer=result["result"],
+            answer=answer_text,
             instance_id=INSTANCE_ID,
-            sources_count=len(result.get("source_documents", []))
+            sources_count=len(relevant_docs)
         )
     
     except Exception as e:
@@ -146,7 +149,6 @@ async def get_stats():
             "instance_id": INSTANCE_ID
         }
     
-    # Get collection stats
     collection = vector_store._collection
     count = collection.count()
     
@@ -159,16 +161,14 @@ async def get_stats():
 @app.delete("/clear")
 async def clear_documents():
     """Clear all documents from the vector store"""
-    global vector_store, qa_chain
+    global vector_store
     
     try:
         if vector_store is not None:
-            # Delete the persist directory
             if os.path.exists("./chroma_db"):
                 shutil.rmtree("./chroma_db")
             
             vector_store = None
-            qa_chain = None
         
         return {
             "status": "success",
