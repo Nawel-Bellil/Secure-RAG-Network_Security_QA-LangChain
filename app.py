@@ -18,9 +18,13 @@ vector_store = None
 
 # Configuration
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "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")
+
+# Purpose: Identify which Docker container handled the request
+#Why: Helps see load balancing in action
 INSTANCE_ID = os.getenv("INSTANCE_ID", "unknown")
 
 # Initialize embeddings
+# Using a lightweight model for embeddings 
 embeddings = HuggingFaceEmbeddings(
     model_name="sentence-transformers/all-MiniLM-L6-v2",
     model_kwargs={'device': 'cpu'}
@@ -32,7 +36,7 @@ llm = ChatGroq(
     model_name="llama-3.1-8b-instant",
     temperature=0.7
 )
-
+# Purpose: Define the shape of incoming JSON
 class QuestionRequest(BaseModel):
     question: str
 
@@ -118,12 +122,11 @@ async def ask_question(request: QuestionRequest):
         # Create prompt manually
         prompt = f"""Answer the question based on the following context:
 
-Context:
-{context}
+        Context:{context}
 
-Question: {request.question}
+        Question: {request.question}
 
-Answer:"""
+        Answer:"""
         
         # Get answer from LLM
         response = llm.invoke(prompt)
@@ -180,4 +183,5 @@ async def clear_documents():
         raise HTTPException(status_code=500, detail=f"Error clearing documents: {str(e)}")
 
 if __name__ == "__main__":
+    
     uvicorn.run(app, host="0.0.0.0", port=8000)

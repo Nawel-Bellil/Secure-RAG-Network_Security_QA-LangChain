@@ -24,3 +24,4 @@ RUN mkdir -p /app/chroma_db
 EXPOSE 8000
 
 CMD ["python", "app.py"]
+
