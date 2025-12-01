@@ -15,6 +15,10 @@ services:
     networks:
       - rag_network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 5s
+      retries: 5
 
   # App Instance 2
   rag_app_instance_2:
@@ -31,6 +35,10 @@ services:
     networks:
       - rag_network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 5s
+      retries: 5
 
   # App Instance 3
   rag_app_instance_3:
@@ -47,6 +55,10 @@ services:
     networks:
       - rag_network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 5s
+      retries: 5
 
   # NGINX Load Balancer
   nginx_load_balancer:
