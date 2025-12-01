@@ -10,7 +10,13 @@ from langchain_community.document_loaders import TextLoader
 import tempfile
 import shutil
 
-# Initialize FastAPI
+# ---- INTERNET SEARCH TOOL ----
+from langchain.tools.tavily_search import TavilySearchResults
+
+
+# ============================================
+# FASTAPI INIT
+# ============================================
 app = FastAPI(title="RAG Document Q&A System")
 
 # Global variables
@@ -30,12 +36,23 @@ embeddings = HuggingFaceEmbeddings(
     model_kwargs={'device': 'cpu'}
 )
 
+
 # Initialize LLM
 llm = ChatGroq(
     groq_api_key=GROQ_API_KEY,
     model_name="llama-3.1-8b-instant",
-    temperature=0.7
+    temperature=0.3
 )
+# ============================================
+# Internet Search
+# ============================================
+
+tavily = TavilySearchResults(
+    max_results=5,
+    api_key=os.getenv("TAVILY_API_KEY", "")
+)
+
+
 # Purpose: Define the shape of incoming JSON
 class QuestionRequest(BaseModel):
     question: str
@@ -44,6 +61,9 @@ class AnswerResponse(BaseModel):
     answer: str
     instance_id: str
     sources_count: int
+# ============================================
+# ROOT
+# ============================================
 
 @app.get("/")
 async def root():
@@ -53,6 +73,9 @@ async def root():
         "instance_id": INSTANCE_ID,
         "documents_loaded": vector_store is not None
     }
+# ============================================
+# DOCUMENT UPLOAD
+# ============================================
 
 @app.post("/upload")
 async def upload_document(file: UploadFile = File(...)):
@@ -99,6 +122,9 @@ async def upload_document(file: UploadFile = File(...)):
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error uploading document: {str(e)}")
+# ============================================
+# ASK HYBRID RAG
+# ============================================
 
 @app.post("/ask", response_model=AnswerResponse)
 async def ask_question(request: QuestionRequest):
@@ -112,37 +138,79 @@ async def ask_question(request: QuestionRequest):
         )
     
     try:
-        # Search for relevant documents (manual RAG - no chains needed!)
+        # 1️⃣ ---- Local Retrieval ----
         retriever = vector_store.as_retriever(search_kwargs={"k": 3})
-        relevant_docs = retriever.invoke(request.question)
+        retrieved_docs = retriever.invoke(request.question)
         
         # Build context from retrieved documents
-        context = "\n\n".join([doc.page_content for doc in relevant_docs])
+        local_context = "\n\n".join([doc.page_content for doc in retrieved_docs])
+        sources_count = len(retrieved_docs)
         
-        # Create prompt manually
-        prompt = f"""Answer the question based on the following context:
 
-        Context:{context}
+        # decide if we need internet search
+        web_used = False
 
-        Question: {request.question}
+        if len(local_context.strip()) < 50:
+            web_used = True
+            # 2️⃣ ---- Internet Search ----
+            web_results = tavily.run(request.question)
+            web_context = "\n\n".join([r["content"] for r in web_results])
+            web_used = True   
+        else:
+            wweb_results = tavily.run(request.question)
+            web_context = "\n\n".join([r["content"] for r in web_results])
+            web_used = True   
+        # Combine contexts ( merge local and web)
+        full_context = f"""
+Local Documents Context:
+{local_context}
+Web Search Context:
+{web_context}
+        """
+        
+             # Create prompt manually
+        prompt = f"""
+You are a hybrid intelligence agent combining:
+- Local RAG documents
+- Internet real-time search
+- Expert-level explanations
 
-        Answer:"""
+Your mission:
+1. Answer the question accurately.
+2. Merge local content + online sources.
+3. Provide:
+   - simple explanation
+   - technical explanation
+   - step-by-step execution plan
+   - CLI commands (if relevant)
+   - troubleshooting tips
+   - verification steps
+
+Question: {request.question}
+
+Context:
+{full_context}
+
+Provide a structured final answer.
+"""
+
         
         # Get answer from LLM
         response = llm.invoke(prompt)
-        
-        # Extract text from response
-        answer_text = response.content if hasattr(response, 'content') else str(response)
+        answer_text = response.content 
         
         return AnswerResponse(
             answer=answer_text,
             instance_id=INSTANCE_ID,
-            sources_count=len(relevant_docs)
+            sources_count=sources_count,
+            web_used=web_used
         )
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing question: {str(e)}")
-
+# ============================================
+# STATS
+# ============================================
 @app.get("/stats")
 async def get_stats():
     """Get statistics about the vector store"""
@@ -160,7 +228,9 @@ async def get_stats():
         "total_chunks": count,
         "status": "active"
     }
-
+# ============================================
+# CLEAR
+# ============================================
 @app.delete("/clear")
 async def clear_documents():
     """Clear all documents from the vector store"""
@@ -182,6 +252,9 @@ async def clear_documents():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error clearing documents: {str(e)}")
 
+# ============================================
+# RUN
+# ============================================
 if __name__ == "__main__":
     
     uvicorn.run(app, host="0.0.0.0", port=8000)
