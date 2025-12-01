@@ -24,6 +24,7 @@ vector_store = None
 
 # Configuration
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "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")
+TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "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")
 
 # Purpose: Identify which Docker container handled the request
 #Why: Helps see load balancing in action
