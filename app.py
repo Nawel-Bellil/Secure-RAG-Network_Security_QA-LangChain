@@ -10,7 +10,6 @@ from langchain_community.document_loaders import TextLoader
 import tempfile
 import shutil
 from docx import Document
-from langchain.text_splitter import CharacterTextSplitter
 
 
 # ---- INTERNET SEARCH TOOL ----
@@ -96,15 +95,17 @@ async def upload_document(file: UploadFile = File(...)):
 
         # Load document content
         if suffix == ".docx":
+            from langchain.schema import Document as LangChainDocument
             doc = Document(tmp_file_path)
             text = "\n".join([p.text for p in doc.paragraphs])
-            documents = [{"page_content": text}]
+            documents = [LangChainDocument(page_content=text, metadata={"source": file.filename})]
         elif suffix == ".txt":
             loader = TextLoader(tmp_file_path, encoding='utf-8')
             documents = loader.load()
         else:
             os.unlink(tmp_file_path)
-            raise HTTPException(status_code=400, detail="Unsupported file type")
+            raise HTTPException(status_code=400, detail="Unsupported file type. Please upload a .txt or .docx file.")
+        
 
         # Split into chunks
         text_splitter = RecursiveCharacterTextSplitter(
@@ -134,6 +135,9 @@ async def upload_document(file: UploadFile = File(...)):
         }
 
     except Exception as e:
+        # Clean up temp file on error
+        if 'tmp_file_path' in locals() and os.path.exists(tmp_file_path):
+            os.unlink(tmp_file_path)
         raise HTTPException(status_code=500, detail=f"Error uploading document: {str(e)}")
 # ============================================
 # ASK HYBRID RAG
@@ -183,30 +187,54 @@ Web Search Context:
         
              # Create prompt manually
         prompt = f"""
-You are a hybrid intelligence agent combining:
-- Local RAG documents
-- Internet real-time search
-- Expert-level explanations
+<system_instructions>
+You are an Advanced Networks expert assistant helping a Computer Security engineering student (Semester 7).
 
-Your mission:
-1. Answer the question accurately.
-2. Merge local content + online sources.
-3. Provide:
-   - simple explanation
-   - technical explanation
-   - step-by-step execution plan
-   - CLI commands (if relevant)
-   - troubleshooting tips
-   - verification steps
+Your expertise covers:
+- Network Security (firewalls, ACLs, IDS/IPS, cryptography)
+- Advanced Routing & Switching (OSPF, EIGRP, BGP, VLANs, STP)
+- MPLS & MPLS-TE (LER, LSR, LSP, LDP, RSVP-TE, VPNs)
+- SDN (OpenFlow, ONOS, ODL, network automation)
+- NFV (VNFs, MANO, service chaining)
+- QoS (DiffServ, traffic shaping, MPLS QoS)
+- Network troubleshooting methodologies
 
-Question: {request.question}
+Response Format Requirements:
+1. **Concept Explanation**: Clear technical definition
+2. **Practical Application**: Cisco IOS/Nokia SR Linux configuration examples when relevant
+3. **Step-by-Step Guide**: Numbered steps for configurations or procedures
+4. **Verification Commands**: Commands to verify the configuration works
+5. **Troubleshooting Tips**: Common issues and how to fix them
+6. **Exam-Ready Summary**: Key points in bullet format
 
-Context:
-{full_context}
+CRITICAL RULES:
+- Always cite which document sections you're using
+- For Cisco configurations, use complete, working examples
+- For troubleshooting, provide diagnostic commands
+- When explaining protocols, include: purpose, operation, configuration, verification
+- If information isn't in documents, clearly state what's from general knowledge vs web search
+</system_instructions>
 
-Provide a structured final answer.
-"""
+<user_question>
+{request.question}
+</user_question>
 
+<context>
+LOCAL COURSE DOCUMENTS:
+{local_context}
+
+WEB SEARCH RESULTS (if needed):
+{web_context}
+</context>
+
+<response_instructions>
+Provide a comprehensive answer following the format above.
+If this is a configuration question, include complete working examples.
+If this is a troubleshooting question, include step-by-step diagnosis.
+If this is an exam prep question, format for easy studying.
+</response_instructions>
+
+Answer:"""
         
         # Get answer from LLM
         response = llm.invoke(prompt)

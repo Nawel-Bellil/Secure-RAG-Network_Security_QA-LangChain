@@ -1,0 +1,26 @@
+MPLS (Multiprotocol Label Switching) Overview
+
+MPLS is a routing technique that directs data from one node to the next based on short path labels rather than long network addresses.
+
+Key Components:
+- LER (Label Edge Router): Adds or removes MPLS labels
+- LSR (Label Switch Router): Forwards packets based on labels
+- FEC (Forwarding Equivalence Class): Group of packets forwarded the same way
+- LSP (Label Switched Path): The path packets take through the network
+
+MPLS-TE (Traffic Engineering):
+MPLS-TE extends basic MPLS by allowing network operators to explicitly control the path that traffic takes through the network. This enables:
+- Bandwidth reservation
+- Load balancing
+- Fast reroute capabilities
+
+Configuration Commands:
+- enable mpls ip: Enables MPLS on an interface
+- show mpls ldp neighbor: Displays LDP neighbors
+- show mpls forwarding-table: Shows the MPLS forwarding table
+
+SDN and MPLS:
+Software-Defined Networking (SDN) can program MPLS paths dynamically through a centralized controller, enabling more flexible network management.
+
+NFV (Network Functions Virtualization):
+NFV replaces physical network devices with software-based virtual network functions (VNFs), allowing MPLS edge routers to run as virtual machines.
