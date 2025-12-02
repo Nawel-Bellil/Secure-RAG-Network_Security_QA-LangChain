@@ -63,6 +63,7 @@ class AnswerResponse(BaseModel):
     answer: str
     instance_id: str
     sources_count: int
+    web_used: bool
 # ============================================
 # ROOT
 # ============================================
@@ -159,7 +160,7 @@ async def ask_question(request: QuestionRequest):
             web_context = "\n\n".join([r["content"] for r in web_results])
             web_used = True   
         else:
-            wweb_results = tavily.run(request.question)
+            web_results = tavily.run(request.question)
             web_context = "\n\n".join([r["content"] for r in web_results])
             web_used = True   
         # Combine contexts ( merge local and web)

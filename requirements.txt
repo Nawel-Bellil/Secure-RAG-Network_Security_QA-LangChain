@@ -6,4 +6,5 @@ langchain-groq
 chromadb
 sentence-transformers
 python-multipart
-tavily 
+tavily-python
+langchain-community
