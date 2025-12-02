@@ -9,10 +9,12 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import TextLoader
 import tempfile
 import shutil
+from docx import Document
+from langchain.text_splitter import CharacterTextSplitter
+
 
 # ---- INTERNET SEARCH TOOL ----
-from langchain.tools.tavily_search import TavilySearchResults
-
+from langchain_community.tools.tavily_search import TavilySearchResults
 
 # ============================================
 # FASTAPI INIT
@@ -79,30 +81,38 @@ async def root():
 # ============================================
 # DOCUMENT UPLOAD
 # ============================================
-
 @app.post("/upload")
 async def upload_document(file: UploadFile = File(...)):
-    """Upload a text document to the vector store"""
+    """Upload a text or DOCX document to the vector store"""
     global vector_store
-    
+
     try:
-        # Save uploaded file temporarily
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".txt") as tmp_file:
+        # Save uploaded file temporarily with correct suffix
+        suffix = os.path.splitext(file.filename)[1].lower()
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
             content = await file.read()
             tmp_file.write(content)
             tmp_file_path = tmp_file.name
-        
-        # Load document
-        loader = TextLoader(tmp_file_path, encoding='utf-8')
-        documents = loader.load()
-        
+
+        # Load document content
+        if suffix == ".docx":
+            doc = Document(tmp_file_path)
+            text = "\n".join([p.text for p in doc.paragraphs])
+            documents = [{"page_content": text}]
+        elif suffix == ".txt":
+            loader = TextLoader(tmp_file_path, encoding='utf-8')
+            documents = loader.load()
+        else:
+            os.unlink(tmp_file_path)
+            raise HTTPException(status_code=400, detail="Unsupported file type")
+
         # Split into chunks
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=500,
             chunk_overlap=50
         )
         texts = text_splitter.split_documents(documents)
-        
+
         # Create or update vector store
         if vector_store is None:
             vector_store = Chroma.from_documents(
@@ -112,17 +122,17 @@ async def upload_document(file: UploadFile = File(...)):
             )
         else:
             vector_store.add_documents(texts)
-        
+
         # Clean up temp file
         os.unlink(tmp_file_path)
-        
+
         return {
             "status": "success",
             "message": f"Document '{file.filename}' uploaded successfully",
             "chunks_created": len(texts),
             "instance_id": INSTANCE_ID
         }
-    
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error uploading document: {str(e)}")
 # ============================================

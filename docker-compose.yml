@@ -6,7 +6,7 @@ services:
     container_name: rag_app_instance_1
     environment:
       - GROQ_API_KEY=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
-      - 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
+      - TAVILY_API_KEY=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
       - INSTANCE_ID=instance-1
     volumes:
       - app1_data:/app/chroma_db
@@ -26,7 +26,7 @@ services:
     container_name: rag_app_instance_2
     environment:
       - GROQ_API_KEY=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
-      - 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
+      - TAVILY_API_KEY=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
       - INSTANCE_ID=instance-2
     volumes:
       - app2_data:/app/chroma_db
@@ -46,7 +46,7 @@ services:
     container_name: rag_app_instance_3
     environment:
       - GROQ_API_KEY=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
-      - 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
+      - TAVILY_API_KEY=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
       - INSTANCE_ID=instance-3
     volumes:
       - app3_data:/app/chroma_db

@@ -208,3 +208,4 @@ __marimo__/
 ./venv/
 test.ps1
 test_api.sh
+rag_test_output/
