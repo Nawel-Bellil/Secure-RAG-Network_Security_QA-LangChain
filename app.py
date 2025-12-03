@@ -329,7 +329,7 @@ async def upload_document(file: UploadFile = File(...)):
 # ASK HYBRID RAG
 # ============================================
 
-@app.post("/ask", response_model=AnswerResponse)
+@app.post("/ask", response_model=SecureAnswerResponse)
 async def ask_question(request: QuestionRequest):
     """Ask a question about the uploaded documents"""
     global vector_store
@@ -341,100 +341,72 @@ async def ask_question(request: QuestionRequest):
         )
     
     try:
-        # 1️⃣ ---- Local Retrieval ----
+         # 1. SECURITY SCAN
+        is_suspicious, warnings, severity = security_scanner.scan_for_injection(request.question)
+        # 2. BLOCK IF DANGEROUS (severity > 50)
+        if severity > 50:
+            return SecureAnswerResponse(
+                answer="⚠️ SECURITY ALERT: Your question triggered security warnings. This appears to be a prompt injection attempt. Please ask a genuine technical question.",
+                instance_id=INSTANCE_ID,
+                sources_count=0,
+                web_used=False,
+                security_scan={
+                    "blocked": True,
+                    "suspicious": True,
+                    "warnings": warnings,
+                    "severity": severity,
+                    "reason": "High-severity injection detected"
+                }
+            )
+        # 3. SANITIZE INPUT
+        clean_question = security_scanner.sanitize_input(request.question)
+        
+         # 4. RETRIEVE DOCUMENTS
         retriever = vector_store.as_retriever(search_kwargs={"k": 3})
         retrieved_docs = retriever.invoke(request.question)
-        
-        # Build context from retrieved documents
         local_context = "\n\n".join([doc.page_content for doc in retrieved_docs])
-        sources_count = len(retrieved_docs)
+        
         
 
-        # decide if we need internet search
+        # 5. WEB SEARCH IF NEEDED
         web_used = False
-
+        web_context = ""
         if len(local_context.strip()) < 50:
-            web_used = True
-            # 2️⃣ ---- Internet Search ----
-            web_results = tavily.run(request.question)
-            web_context = "\n\n".join([r["content"] for r in web_results])
-            web_used = True   
-        else:
-            web_results = tavily.run(request.question)
-            web_context = "\n\n".join([r["content"] for r in web_results])
-            web_used = True   
-        # Combine contexts ( merge local and web)
-        full_context = f"""
-Local Documents Context:
-{local_context}
-Web Search Context:
-{web_context}
-        """
-        
-             # Create prompt manually
-        prompt = f"""
-<system_instructions>
-You are an Advanced Networks expert assistant helping a Computer Security engineering student (Semester 7).
+            try:
+                web_results = tavily.run(clean_question)
+                web_context = "\n\n".join([r.get("content", "") for r in web_results if isinstance(r, dict)])
+                web_used = True
+            except:
+                web_context = ""
 
-Your expertise covers:
-- Network Security (firewalls, ACLs, IDS/IPS, cryptography)
-- Advanced Routing & Switching (OSPF, EIGRP, BGP, VLANs, STP)
-- MPLS & MPLS-TE (LER, LSR, LSP, LDP, RSVP-TE, VPNs)
-- SDN (OpenFlow, ONOS, ODL, network automation)
-- NFV (VNFs, MANO, service chaining)
-- QoS (DiffServ, traffic shaping, MPLS QoS)
-- Network troubleshooting methodologies
+        # 6. BUILD SECURE PROMPT
+        secure_prompt = prompt_builder.build_secure_prompt(
+            clean_question,
+            local_context,
+            web_context
+        )
+        # 7. GET ANSWER
+        response = llm.invoke(secure_prompt)
+        answer_text = response.content
 
-Response Format Requirements:
-1. **Concept Explanation**: Clear technical definition
-2. **Practical Application**: Cisco IOS/Nokia SR Linux configuration examples when relevant
-3. **Step-by-Step Guide**: Numbered steps for configurations or procedures
-4. **Verification Commands**: Commands to verify the configuration works
-5. **Troubleshooting Tips**: Common issues and how to fix them
-6. **Exam-Ready Summary**: Key points in bullet format
 
-CRITICAL RULES:
-- Always cite which document sections you're using
-- For Cisco configurations, use complete, working examples
-- For troubleshooting, provide diagnostic commands
-- When explaining protocols, include: purpose, operation, configuration, verification
-- If information isn't in documents, clearly state what's from general knowledge vs web search
-</system_instructions>
-
-<user_question>
-{request.question}
-</user_question>
-
-<context>
-LOCAL COURSE DOCUMENTS:
-{local_context}
-
-WEB SEARCH RESULTS (if needed):
-{web_context}
-</context>
-
-<response_instructions>
-Provide a comprehensive answer following the format above.
-If this is a configuration question, include complete working examples.
-If this is a troubleshooting question, include step-by-step diagnosis.
-If this is an exam prep question, format for easy studying.
-</response_instructions>
-
-Answer:"""
-        
-        # Get answer from LLM
-        response = llm.invoke(prompt)
-        answer_text = response.content 
-        
-        return AnswerResponse(
+        # 8. RETURN WITH SECURITY INFO
+        return SecureAnswerResponse(
             answer=answer_text,
             instance_id=INSTANCE_ID,
-            sources_count=sources_count,
-            web_used=web_used
+            sources_count=len(retrieved_docs),
+            web_used=web_used,
+            security_scan={
+                "suspicious": is_suspicious,
+                "warnings": warnings,
+                "severity": severity,
+                "sanitized": clean_question != request.question,
+                "blocked": False
+            }
         )
     
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error processing question: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error : {str(e)}")
 # ============================================
 # STATS
 # ============================================
