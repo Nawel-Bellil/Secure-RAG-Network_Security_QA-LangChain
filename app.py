@@ -59,6 +59,31 @@ class SecurityConfig:
 # ============================================
 # SECURITY UTILITIES
 # ============================================
+class RateLimiter:
+    def __init__(self):
+        self.requests = defaultdict(list)
+    
+    def is_allowed(self, identifier: str) -> tuple[bool, str]:
+        now = datetime.now()
+        
+        # Clean old requests
+        self.requests[identifier] = [
+            req_time for req_time in self.requests[identifier]
+            if now - req_time < timedelta(hours=1)
+        ]
+        
+        # Check limits
+        recent_minute = sum(1 for t in self.requests[identifier] if now - t < timedelta(minutes=1))
+        recent_hour = len(self.requests[identifier])
+        
+        if recent_minute >= SecurityConfig.MAX_REQUESTS_PER_MINUTE:
+            return False, f"Rate limit: {SecurityConfig.MAX_REQUESTS_PER_MINUTE} requests/minute exceeded"
+        
+        if recent_hour >= SecurityConfig.MAX_REQUESTS_PER_HOUR:
+            return False, f"Rate limit: {SecurityConfig.MAX_REQUESTS_PER_HOUR} requests/hour exceeded"
+        
+        self.requests[identifier].append(now)
+        return True, "OK"
 
 
 # ---- INTERNET SEARCH TOOL ----
