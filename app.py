@@ -1,5 +1,5 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File
-from pydantic import BaseModel
+from fastapi import FastAPI, HTTPException, UploadFile, File, Header, Request
+from pydantic import BaseModel, Field, validator 
 import os
 import uvicorn
 from langchain_community.embeddings import HuggingFaceEmbeddings
@@ -10,6 +10,55 @@ from langchain_community.document_loaders import TextLoader
 import tempfile
 import shutil
 from docx import Document
+import re
+from datetime import datetime, timedelta
+from collections import defaultdict
+import hashlib
+
+# ============================================
+# SECURITY CONFIGURATION
+# ============================================
+class SecurityConfig:
+    # Rate limiting
+    MAX_REQUESTS_PER_MINUTE = 30
+    MAX_REQUESTS_PER_HOUR = 200
+    
+    # Input validation
+    MAX_QUESTION_LENGTH = 1000
+    MAX_FILE_SIZE_MB = 20
+    
+    # Suspicious patterns for prompt injection detection
+    INJECTION_PATTERNS = [
+        r"ignore\s+(previous|above|all|prior)\s+instructions?",
+        r"disregard\s+(previous|above|all)\s+(instructions?|prompts?)",
+        r"forget\s+(everything|all|instructions?|context)",
+        r"new\s+instructions?:",
+        r"system\s*:\s*you\s+are",
+        r"<\s*system\s*>",
+        r"act\s+as\s+(a\s+)?(different|new)",
+        r"roleplay\s+as",
+        r"pretend\s+(you|to)\s+(are|be)",
+        r"\[system\]",
+        r"override\s+your",
+        r"bypass\s+(security|restrictions)",
+        r"reveal\s+(your|the)\s+(prompt|instructions)",
+        r"what\s+(are|were)\s+your\s+(original\s+)?instructions",
+        r"repeat\s+everything\s+above",
+        r"print\s+(your|the)\s+system\s+prompt",
+    ]
+    
+    # Blocked phrases that should never appear
+    BLOCKED_PHRASES = [
+        "i have been hacked",
+        "security breach",
+        "jailbreak",
+        "dan mode",
+        "developer mode",
+    ]
+
+# ============================================
+# SECURITY UTILITIES
+# ============================================
 
 
 # ---- INTERNET SEARCH TOOL ----
