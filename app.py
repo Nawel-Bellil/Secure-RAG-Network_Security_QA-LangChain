@@ -7,6 +7,7 @@ from langchain_community.vectorstores import Chroma
 from langchain_groq import ChatGroq
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import TextLoader
+from langchain.schema import Document as LangChainDocument
 import tempfile
 import shutil
 from docx import Document
@@ -268,38 +269,67 @@ async def root():
 # ============================================
 @app.post("/upload")
 async def upload_document(file: UploadFile = File(...)):
-    """Upload a text or DOCX document to the vector store"""
+    """Upload documents with advanced parsing (PDF, DOCX, TXT, MD, etc.)"""
     global vector_store
 
     try:
-        # Save uploaded file temporarily with correct suffix
+        # Validate file type
         suffix = os.path.splitext(file.filename)[1].lower()
+        allowed_types = [".txt", ".docx", ".pdf", ".md", ".csv"]
+
+        if suffix not in allowed_types:
+            raise HTTPException(status_code=400, detail="Unsupported file type. Please upload a .txt, .docx, .pdf, .md, or .csv file.")
+        
+        # Save uploaded file temporarily with correct suffix
+         # Check file size
+        content = await file.read()
+        file_size_mb = len(content) / (1024 * 1024)
+        if file_size_mb > SecurityConfig.MAX_FILE_SIZE_MB:
+            raise HTTPException(400, f"File too large. Max: {SecurityConfig.MAX_FILE_SIZE_MB}MB")
+        
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
-            content = await file.read()
             tmp_file.write(content)
             tmp_file_path = tmp_file.name
 
-        # Load document content
-        if suffix == ".docx":
-            from langchain.schema import Document as LangChainDocument
+        # Load document based on type
+        if suffix == ".pdf":
+            # PDF parsing
+            from PyPDF2 import PdfReader
+            reader = PdfReader(tmp_file_path)
+            text = ""
+            for page in reader.pages:
+                text += page.extract_text() + "\n"
+            documents = [LangChainDocument(page_content=text, metadata={"source": file.filename})]
+            
+        elif suffix == ".docx":
+            # DOCX parsing
             doc = Document(tmp_file_path)
             text = "\n".join([p.text for p in doc.paragraphs])
             documents = [LangChainDocument(page_content=text, metadata={"source": file.filename})]
-        elif suffix == ".txt":
+            
+        elif suffix == ".txt" or suffix == ".md":
+            # Text/Markdown parsing
             loader = TextLoader(tmp_file_path, encoding='utf-8')
             documents = loader.load()
-        else:
-            os.unlink(tmp_file_path)
-            raise HTTPException(status_code=400, detail="Unsupported file type. Please upload a .txt or .docx file.")
+            
+        elif suffix == ".csv":
+            # CSV parsing
+            import csv
+            with open(tmp_file_path, 'r', encoding='utf-8') as f:
+                reader = csv.reader(f)
+                text = "\n".join([", ".join(row) for row in reader])
+            documents = [LangChainDocument(page_content=text, metadata={"source": file.filename})]
         
-
+        # Security scan on content
+        is_suspicious, warnings, severity = security_scanner.scan_for_injection(documents[0].page_content)
+        
         # Split into chunks
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=500,
             chunk_overlap=50
         )
         texts = text_splitter.split_documents(documents)
-
+        
         # Create or update vector store
         if vector_store is None:
             vector_store = Chroma.from_documents(
@@ -309,17 +339,20 @@ async def upload_document(file: UploadFile = File(...)):
             )
         else:
             vector_store.add_documents(texts)
-
-        # Clean up temp file
+        
         os.unlink(tmp_file_path)
-
+        
         return {
             "status": "success",
-            "message": f"Document '{file.filename}' uploaded successfully",
+            "message": f"Document '{file.filename}' uploaded",
             "chunks_created": len(texts),
-            "instance_id": INSTANCE_ID
+            "instance_id": INSTANCE_ID,
+            "security_scan": {
+                "suspicious_content": is_suspicious,
+                "warnings": warnings if is_suspicious else [],
+                "severity": severity
+            }
         }
-
     except Exception as e:
         # Clean up temp file on error
         if 'tmp_file_path' in locals() and os.path.exists(tmp_file_path):
