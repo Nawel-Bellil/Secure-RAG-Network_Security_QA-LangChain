@@ -85,6 +85,58 @@ class RateLimiter:
         self.requests[identifier].append(now)
         return True, "OK"
 
+# ============================================
+class SecurityScanner:
+    @staticmethod
+    def scan_for_injection(text: str) -> tuple[bool, list[str], int]:
+        """
+        Scan text for prompt injection attempts
+        Returns: (is_suspicious, warnings, severity_score)
+        """
+        warnings = []
+        severity = 0
+        
+        # Check for injection patterns
+        for pattern in SecurityConfig.INJECTION_PATTERNS:
+            matches = list(re.finditer(pattern, text, re.IGNORECASE))
+            if matches:
+                severity += len(matches) * 10
+                for match in matches:
+                    warnings.append(f"Injection pattern detected: '{match.group()}'")
+        
+        # Check for blocked phrases
+        text_lower = text.lower()
+        for phrase in SecurityConfig.BLOCKED_PHRASES:
+            if phrase in text_lower:
+                severity += 20
+                warnings.append(f"Blocked phrase detected: '{phrase}'")
+        
+        # Check for excessive special characters (potential encoding attack)
+        special_char_ratio = len(re.findall(r'[^\w\s.,!?\-\']', text)) / max(len(text), 1)
+        if special_char_ratio > 0.3:
+            severity += 15
+            warnings.append(f"High special character ratio: {special_char_ratio:.2%}")
+        
+        # Check for repeated instructions
+        if text.count("instruction") > 3 or text.count("command") > 3:
+            severity += 10
+            warnings.append("Repeated mention of 'instructions' or 'commands'")
+        
+        is_suspicious = severity > 15
+        
+        return is_suspicious, warnings, severity
+    
+    @staticmethod
+    def sanitize_input(text: str) -> str:
+        """Clean and normalize input"""
+        # Remove excessive whitespace
+        text = re.sub(r'\s+', ' ', text)
+        # Remove null bytes
+        text = text.replace('\x00', '')
+        # Limit length
+        if len(text) > SecurityConfig.MAX_QUESTION_LENGTH:
+            text = text[:SecurityConfig.MAX_QUESTION_LENGTH]
+        return text.strip()
 
 # ---- INTERNET SEARCH TOOL ----
 from langchain_community.tools.tavily_search import TavilySearchResults
