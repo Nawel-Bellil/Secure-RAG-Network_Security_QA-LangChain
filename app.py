@@ -88,8 +88,6 @@ class RateLimiter:
 # ============================================
 # SECURITY SCANNER
 # ============================================
-
-
 class SecurityScanner:
     @staticmethod
     def scan_for_injection(text: str) -> tuple[bool, list[str], int]:
@@ -247,11 +245,12 @@ tavily = TavilySearchResults(
 class QuestionRequest(BaseModel):
     question: str
 
-class AnswerResponse(BaseModel):
+class SecureAnswerResponse(BaseModel):
     answer: str
     instance_id: str
     sources_count: int
     web_used: bool
+    security_scan: dict  # NEW: Security scan results
 # ============================================
 # ROOT
 # ============================================
