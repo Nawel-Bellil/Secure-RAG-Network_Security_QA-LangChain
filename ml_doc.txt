@@ -1,1 +1,0 @@
-Machine Learning is a subset of Artificial Intelligence. It enables computers to learn from data without being explicitly programmed. There are three main types: Supervised Learning uses labeled data, Unsupervised Learning finds patterns in unlabeled data, and Reinforcement Learning learns through trial and error. Popular frameworks include TensorFlow, PyTorch, and scikit-learn.

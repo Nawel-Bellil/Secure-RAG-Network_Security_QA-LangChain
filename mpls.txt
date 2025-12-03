@@ -23,4 +23,5 @@ SDN and MPLS:
 Software-Defined Networking (SDN) can program MPLS paths dynamically through a centralized controller, enabling more flexible network management.
 
 NFV (Network Functions Virtualization):
-NFV replaces physical network devices with software-based virtual network functions (VNFs), allowing MPLS edge routers to run as virtual machines.
+NFV replaces physical netwo
+rk devices with software-based virtual network functions (VNFs), allowing MPLS edge routers to run as virtual machines.
