@@ -86,6 +86,10 @@ class RateLimiter:
         return True, "OK"
 
 # ============================================
+# SECURITY SCANNER
+# ============================================
+
+
 class SecurityScanner:
     @staticmethod
     def scan_for_injection(text: str) -> tuple[bool, list[str], int]:
@@ -195,6 +199,13 @@ from langchain_community.tools.tavily_search import TavilySearchResults
 # FASTAPI INIT
 # ============================================
 app = FastAPI(title="RAG Document Q&A System")
+
+
+# Initialize security components
+rate_limiter = RateLimiter()
+security_scanner = SecurityScanner()
+prompt_builder = SecurePromptBuilder() 
+
 
 # Global variables
 vector_store = None
