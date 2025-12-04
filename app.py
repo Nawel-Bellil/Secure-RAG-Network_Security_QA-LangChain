@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field, validator
 import os
 import uvicorn
 from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings  # Changed from langchain_community
 from langchain_community.vectorstores import Chroma
 from langchain_groq import ChatGroq
 from langchain_text_splitters import RecursiveCharacterTextSplitter

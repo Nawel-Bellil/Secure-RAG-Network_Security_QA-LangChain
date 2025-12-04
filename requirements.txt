@@ -1,11 +1,13 @@
 fastapi
-uvicorn
+uvicorn[standard]
+pydantic
 langchain
 langchain-community
 langchain-groq
+langchain-huggingface
 chromadb
 sentence-transformers
 python-multipart
 tavily-python
-langchain-community
 python-docx
+PyPDF2
