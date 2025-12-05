@@ -209,3 +209,4 @@ __marimo__/
 test.ps1
 test_api.sh
 rag_test_output/
+*.ps1
