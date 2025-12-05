@@ -1,7 +1,7 @@
 fastapi
 uvicorn[standard]
 pydantic
-langchain
+langchain>=0.1.0,<1.0.0
 langchain-community
 langchain-groq
 langchain-huggingface
