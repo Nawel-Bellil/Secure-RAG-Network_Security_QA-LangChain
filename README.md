@@ -235,10 +235,3 @@ upstream rag_backend {
 * [Docker Compose Reference](https://docs.docker.com/compose/)
 
 ---
-
-## 🤝 Contributing
-
-This project is **for learning and experimentation**. Feel free to explore, break things, and improve.
-If you want, I can also **add a “Code Walkthrough Section”** with **all the major classes/functions explained**, so anyone reviewing your repo can understand **every technical portion of your FastAPI + RAG code**.
-
-Do you want me to do that next?
