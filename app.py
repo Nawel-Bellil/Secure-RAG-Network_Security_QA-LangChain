@@ -149,10 +149,10 @@ security_scanner = SecurityScanner()
 prompt_builder = SecurePromptBuilder()
 
 vector_store = None
-"""
+
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
-"""
+
 INSTANCE_ID = os.getenv("INSTANCE_ID", "unknown")
 
 embeddings = HuggingFaceEmbeddings(
