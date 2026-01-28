@@ -11,10 +11,7 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-    
-  # ============================================
   # JOB 1: Security Scanning
-  # ============================================
   security-scan:
     name: Security & Dependency Scan
     runs-on: ubuntu-latest
@@ -36,14 +33,14 @@ jobs:
       
       - name: Run Bandit Security Scan
         run: |
-          echo "🔒 Running Bandit security analysis..."
+          echo " Running Bandit security analysis..."
           bandit -r . -f json -o bandit-report.json || true
           bandit -r . -f txt
         continue-on-error: true
       
       - name: Check for Vulnerable Dependencies
         run: |
-          echo "🔍 Checking for known vulnerabilities..."
+          echo " Checking for known vulnerabilities..."
           safety check --json || true
         continue-on-error: true
       
@@ -55,9 +52,7 @@ jobs:
           path: |
             bandit-report.json
 
-  # ============================================
   # JOB 2: Code Quality & Linting
-  # ============================================
   code-quality:
     name: Code Quality Analysis
     runs-on: ubuntu-latest
@@ -89,13 +84,11 @@ jobs:
       
       - name: Check Import Sorting
         run: |
-          echo "📦 Checking import order..."
+          echo " Checking import order..."
           isort --check-only app.py || true
         continue-on-error: true
 
-  # ============================================
   # JOB 3: Unit Testing
-  # ============================================
   test:
     name: Unit & Integration Tests
     runs-on: ubuntu-latest
@@ -127,13 +120,11 @@ jobs:
 
       - name: Run Basic Import Test
         run: |
-          python -c "from fastapi import FastAPI; print('✅ FastAPI imported')"
-          python -c "import langchain; print('✅ LangChain imported')"
-          python -c "import chromadb; print('✅ ChromaDB imported')"
+          python -c "from fastapi import FastAPI; print(' FastAPI imported')"
+          python -c "import langchain; print(' LangChain imported')"
+          python -c "import chromadb; print(' ChromaDB imported')"
 
-  # ============================================
   # JOB 4: Docker Build & Security Scan
-  # ============================================
   docker-build:
     name: Docker Build & Vulnerability Scan
     runs-on: ubuntu-latest
@@ -170,9 +161,7 @@ jobs:
         with:
           sarif_file: 'trivy-results.sarif'
 
-  # ============================================
   # JOB 5: Network Configuration Validation
-  # ============================================
   network-validation:
     name: Nginx & Network Config Validation
     runs-on: ubuntu-latest
@@ -183,22 +172,20 @@ jobs:
       
       - name: Validate Nginx Configuration
         run: |
-          echo "🌐 Validating NGINX configuration..."
+          echo " Validating NGINX configuration..."
           docker run --rm -v $(pwd)/nginx.conf:/etc/nginx/nginx.conf:ro nginx:alpine nginx -t
       
       - name: Validate Docker Compose
         run: |
-          echo "🐳 Validating docker-compose.yml..."
+          echo " Validating docker-compose.yml..."
           docker compose config --quiet
       
       - name: Check Port Conflicts
         run: |
-          echo "🔌 Checking for port configuration..."
+          echo " Checking for port configuration..."
           grep -E "ports:|8001|8002|8003|8080" docker-compose.yml || true
 
-  # ============================================
   # JOB 6: Performance & Load Testing
-  # ============================================
   load-test:
     name: Load Testing & Performance
     runs-on: ubuntu-latest
@@ -220,7 +207,7 @@ jobs:
 
       - name: Health Check All Instances
         run: |
-          echo "🏥 Testing health endpoints..."
+          echo " Testing health endpoints..."
           curl -f http://localhost:8080/ || exit 1
           curl -f http://localhost:8001/ || exit 1
           curl -f http://localhost:8002/ || exit 1
@@ -228,7 +215,7 @@ jobs:
       
       - name: Test Load Balancing
         run: |
-          echo "⚖️ Testing NGINX load balancing..."
+          echo " Testing NGINX load balancing..."
           for i in {1..10}; do
             curl -s http://localhost:8080/ | jq -r '.instance_id'
           done
@@ -238,9 +225,7 @@ jobs:
         run: |
           docker compose down -v
 
-  # ============================================
   # JOB 7: Build Report
-  # ============================================
   build-report:
     name: Generate Build Report
     runs-on: ubuntu-latest
@@ -253,9 +238,9 @@ jobs:
       
       - name: Generate Summary
         run: |
-          echo "# 🚀 CI Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+          echo "#  CI Pipeline Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## ✅ Completed Jobs" >> $GITHUB_STEP_SUMMARY
+          echo "##  Completed Jobs" >> $GITHUB_STEP_SUMMARY
           echo "- Security Scanning" >> $GITHUB_STEP_SUMMARY
           echo "- Code Quality Analysis" >> $GITHUB_STEP_SUMMARY
           echo "- Unit Testing" >> $GITHUB_STEP_SUMMARY
@@ -263,7 +248,7 @@ jobs:
           echo "- Network Validation" >> $GITHUB_STEP_SUMMARY
           echo "- Load Testing" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## 📊 Metrics" >> $GITHUB_STEP_SUMMARY
+          echo "##  Metrics" >> $GITHUB_STEP_SUMMARY
           echo "- Branch: \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- Commit: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- Workflow: #${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY

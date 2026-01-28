@@ -12,9 +12,7 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  # ============================================
   # JOB 1: Build & Push Docker Images
-  # ============================================
   build-and-push:
     name: Build & Push Container Images
     runs-on: ubuntu-latest
@@ -66,9 +64,7 @@ jobs:
             VCS_REF=${{ github.sha }}
             VERSION=${{ steps.meta.outputs.version }}
 
-  # ============================================
   # JOB 2: Deploy to Staging
-  # ============================================
   deploy-staging:
     name: Deploy to Staging Environment
     runs-on: ubuntu-latest
@@ -87,24 +83,22 @@ jobs:
           echo "${{ secrets.STAGING_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.STAGING_HOST }} >> ~/.ssh/known_hosts
-        if: secrets.STAGING_SSH_KEY != ''
+        
       
       - name: Deploy via SSH (Example)
         run: |
-          echo "📦 Deploying to staging server..."
+          echo " Deploying to staging server..."
           echo "ssh user@staging-server 'cd /app && docker compose pull && docker compose up -d'"
-          echo "⚠️ Configure STAGING_SSH_KEY and STAGING_HOST secrets for real deployment"
+          echo " Configure STAGING_SSH_KEY and STAGING_HOST secrets for real deployment"
       
       - name: Health Check Staging
         run: |
-          echo "🏥 Waiting for staging environment..."
+          echo " Waiting for staging environment..."
           # sleep 30
           # curl -f http://staging.example.com/health || exit 1
-          echo "✅ Staging health check passed (mocked)"
+          echo " Staging health check passed (mocked)"
 
-  # ============================================
   # JOB 3: Integration Tests on Staging
-  # ============================================
   integration-test:
     name: Run Integration Tests
     runs-on: ubuntu-latest
@@ -125,13 +119,11 @@ jobs:
       
       - name: Run API Integration Tests
         run: |
-          echo "🧪 Running integration tests against staging..."
+          echo " Running integration tests against staging..."
           echo "pytest tests/integration/ --base-url=http://staging.example.com"
-          echo "✅ Integration tests passed (mocked)"
+          echo " Integration tests passed (mocked)"
 
-  # ============================================
   # JOB 4: Deploy to Production
-  # ============================================
   deploy-production:
     name: Deploy to Production
     runs-on: ubuntu-latest
@@ -151,11 +143,11 @@ jobs:
           echo "${{ secrets.PRODUCTION_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.PRODUCTION_HOST }} >> ~/.ssh/known_hosts
-        if: secrets.PRODUCTION_SSH_KEY != ''
+       
       
       - name: Deploy to Production Cluster
         run: |
-          echo "🚀 Deploying to production..."
+          echo " Deploying to production..."
           echo "Commands would include:"
           echo "1. SSH to production server"
           echo "2. Pull latest docker-compose.yml"
@@ -165,20 +157,18 @@ jobs:
       
       - name: Verify Production Deployment
         run: |
-          echo "✅ Production deployment verified (mocked)"
+          echo " Production deployment verified (mocked)"
           echo "Load balancer: Active"
           echo "All 3 instances: Healthy"
       
       - name: Create Deployment Record
         run: |
-          echo "📝 Recording deployment..."
+          echo " Recording deployment..."
           echo "Version: ${{ github.sha }}"
           echo "Deployed at: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
           echo "Deployed by: ${{ github.actor }}"
 
-  # ============================================
   # JOB 5: Post-Deployment Monitoring
-  # ============================================
   post-deployment:
     name: Post-Deployment Checks
     runs-on: ubuntu-latest
@@ -186,15 +176,15 @@ jobs:
     
     steps:
       - name: Monitor Application Health
-        run: |
-          echo "📊 Monitoring application metrics..."
+        run: 
+          echo " Monitoring application metrics..."
           echo "Checking response times, error rates, and throughput"
           sleep 5
-          echo "✅ All metrics within acceptable ranges"
+          echo " All metrics within acceptable ranges"
       
       - name: Send Deployment Notification
         run: |
-          echo "📧 Sending deployment notifications..."
+          echo " Sending deployment notifications..."
           echo "Slack/Email/Teams notification would be sent here"
           echo "Deployment successful! Version: ${{ github.sha }}"
       
@@ -217,9 +207,7 @@ jobs:
           draft: false
           prerelease: false
 
-  # ============================================
   # JOB 6: Rollback on Failure
-  # ============================================
   rollback:
     name: Rollback on Failure
     runs-on: ubuntu-latest
@@ -229,12 +217,12 @@ jobs:
     steps:
       - name: Trigger Rollback
         run: |
-          echo "🚨 DEPLOYMENT FAILED - Initiating rollback..."
+          echo " DEPLOYMENT FAILED - Initiating rollback..."
           echo "ssh production 'cd /app && git checkout HEAD~1 && docker compose up -d'"
           echo "Rolling back to previous stable version"
       
       - name: Alert Operations Team
         run: |
-          echo "📢 Alerting operations team about failed deployment"
+          echo " Alerting operations team about failed deployment"
           echo "Deployment failed for commit: ${{ github.sha }}"
           echo "Automatic rollback executed"
