@@ -1,0 +1,40 @@
+name: CI - Minimal Test
+
+on:
+  push:
+    branches: [ main, dev, develop ]
+  pull_request:
+    branches: [ main, dev ]
+
+jobs:
+  test:
+    name: Quick Test
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      
+      - name: Test Environment
+        run: |
+          echo "✅ Workflow is running!"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
+      
+      - name: Check Files
+        run: |
+          echo "Files in repo:"
+          ls -la
+          echo ""
+          echo "Python files:"
+          ls -la *.py || echo "No Python files"
+      
+      - name: Test Docker Compose
+        run: |
+          echo "Checking docker-compose.yml..."
+          if [ -f docker-compose.yml ]; then
+            echo "✅ docker-compose.yml exists"
+            cat docker-compose.yml | head -20
+          else
+            echo "❌ docker-compose.yml not found"
+          fi
