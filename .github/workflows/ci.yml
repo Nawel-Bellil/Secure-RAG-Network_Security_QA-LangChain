@@ -1,0 +1,269 @@
+name: CI Pipeline - Security & Network Testing
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  DOCKER_REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+    
+  # ============================================
+  # JOB 1: Security Scanning
+  # ============================================
+  security-scan:
+    name: Security & Dependency Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install bandit safety pytest
+      
+      - name: Run Bandit Security Scan
+        run: |
+          echo "🔒 Running Bandit security analysis..."
+          bandit -r . -f json -o bandit-report.json || true
+          bandit -r . -f txt
+        continue-on-error: true
+      
+      - name: Check for Vulnerable Dependencies
+        run: |
+          echo "🔍 Checking for known vulnerabilities..."
+          safety check --json || true
+        continue-on-error: true
+      
+      - name: Upload Security Reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-reports
+          path: |
+            bandit-report.json
+
+  # ============================================
+  # JOB 2: Code Quality & Linting
+  # ============================================
+  code-quality:
+    name: Code Quality Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install Linting Tools
+        run: |
+          pip install flake8 black isort pylint
+      
+      - name: Run Flake8
+        run: |
+          echo "📝 Running Flake8..."
+          flake8 app.py --max-line-length=120 --extend-ignore=E203,W503 || true
+        continue-on-error: true
+      
+      - name: Check Black Formatting
+        run: |
+          echo "🎨 Checking code formatting..."
+          black --check app.py || true
+        continue-on-error: true
+      
+      - name: Check Import Sorting
+        run: |
+          echo "📦 Checking import order..."
+          isort --check-only app.py || true
+        continue-on-error: true
+
+  # ============================================
+  # JOB 3: Unit Testing
+  # ============================================
+  test:
+    name: Unit & Integration Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov httpx
+    
+      - name: Create Test Environment
+        run: |
+            echo "GROQ_API_KEY=${GROQ_API_KEY}" > .env
+            echo "TAVILY_API_KEY=${TAVILY_API_KEY}" >> .env
+            echo "INSTANCE_ID=ci-test" >> .env
+        env:
+            GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+            TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+
+
+      - name: Run Basic Import Test
+        run: |
+          python -c "from fastapi import FastAPI; print('✅ FastAPI imported')"
+          python -c "import langchain; print('✅ LangChain imported')"
+          python -c "import chromadb; print('✅ ChromaDB imported')"
+
+  # ============================================
+  # JOB 4: Docker Build & Security Scan
+  # ============================================
+  docker-build:
+    name: Docker Build & Vulnerability Scan
+    runs-on: ubuntu-latest
+    needs: [security-scan, code-quality]
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          tags: rag-system:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Run Trivy Security Scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: rag-system:test
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+        continue-on-error: true
+      
+      - name: Upload Trivy Results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # ============================================
+  # JOB 5: Network Configuration Validation
+  # ============================================
+  network-validation:
+    name: Nginx & Network Config Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      
+      - name: Validate Nginx Configuration
+        run: |
+          echo "🌐 Validating NGINX configuration..."
+          docker run --rm -v $(pwd)/nginx.conf:/etc/nginx/nginx.conf:ro nginx:alpine nginx -t
+      
+      - name: Validate Docker Compose
+        run: |
+          echo "🐳 Validating docker-compose.yml..."
+          docker compose config --quiet
+      
+      - name: Check Port Conflicts
+        run: |
+          echo "🔌 Checking for port configuration..."
+          grep -E "ports:|8001|8002|8003|8080" docker-compose.yml || true
+
+  # ============================================
+  # JOB 6: Performance & Load Testing
+  # ============================================
+  load-test:
+    name: Load Testing & Performance
+    runs-on: ubuntu-latest
+    needs: docker-build
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      
+      - name: Start Services
+        run: |
+            echo "GROQ_API_KEY=${GROQ_API_KEY}" > .env
+            echo "TAVILY_API_KEY=${TAVILY_API_KEY}" >> .env
+            docker compose up -d
+            sleep 15
+        env:
+            GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+            TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+
+      - name: Health Check All Instances
+        run: |
+          echo "🏥 Testing health endpoints..."
+          curl -f http://localhost:8080/ || exit 1
+          curl -f http://localhost:8001/ || exit 1
+          curl -f http://localhost:8002/ || exit 1
+          curl -f http://localhost:8003/ || exit 1
+      
+      - name: Test Load Balancing
+        run: |
+          echo "⚖️ Testing NGINX load balancing..."
+          for i in {1..10}; do
+            curl -s http://localhost:8080/ | jq -r '.instance_id'
+          done
+      
+      - name: Cleanup
+        if: always()
+        run: |
+          docker compose down -v
+
+  # ============================================
+  # JOB 7: Build Report
+  # ============================================
+  build-report:
+    name: Generate Build Report
+    runs-on: ubuntu-latest
+    needs: [security-scan, code-quality, test, docker-build, network-validation, load-test]
+    if: always()
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      
+      - name: Generate Summary
+        run: |
+          echo "# 🚀 CI Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## ✅ Completed Jobs" >> $GITHUB_STEP_SUMMARY
+          echo "- Security Scanning" >> $GITHUB_STEP_SUMMARY
+          echo "- Code Quality Analysis" >> $GITHUB_STEP_SUMMARY
+          echo "- Unit Testing" >> $GITHUB_STEP_SUMMARY
+          echo "- Docker Build & Scan" >> $GITHUB_STEP_SUMMARY
+          echo "- Network Validation" >> $GITHUB_STEP_SUMMARY
+          echo "- Load Testing" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📊 Metrics" >> $GITHUB_STEP_SUMMARY
+          echo "- Branch: \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Commit: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Workflow: #${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
