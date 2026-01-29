@@ -1,144 +1,44 @@
-# =============================
-# Python
-# =============================
-__pycache__/
-*.py[codz]
-*$py.class
-*.so
-*.pyd
-*.pyo
-*.log
-*.sqlite3
 
-# -----------------------------
-# Python envs
-# -----------------------------
+
+# Environment files (NEVER COMMIT THESE!)
 .env
-.envrc
-.venv/
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
+.env.local
+.env.*.local
+*.env
 
-# -----------------------------
-# Packaging / distribution
-# -----------------------------
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
+# API Keys
+*_api_key*
+*_secret*
+credentials.json
+secrets.yaml
 
-# -----------------------------
-# PyInstaller
-# -----------------------------
-*.manifest
-*.spec
+# Logs that might contain keys
+*.log
+logs/
 
-# -----------------------------
-# Testing / coverage
-# -----------------------------
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py.cover
-.hypothesis/
+# Database files
+*.db
+*.sqlite
+chroma_db/
+
+# Python
+__pycache__/
+*.pyc
 .pytest_cache/
-cover/
+.venv/
+venv/
 
-# -----------------------------
-# Jupyter / IPython
-# -----------------------------
-.ipynb_checkpoints
-profile_default/
-ipython_config.py
+# Docker
+.dockerignore
+docker-compose.override.yml
 
-# -----------------------------
-# IDEs
-# -----------------------------
+# IDE
 .vscode/
 .idea/
-.spyderproject
-.spyproject
-.ropeproject
+*.swp
+*.swo
 
-# -----------------------------
-# Type checkers / linters
-# -----------------------------
-.mypy_cache/
-.dmypy.json
-dmypy.json
-.pyre/
-.pytype/
-.ruff_cache/
-
-# -----------------------------
-# Documentation / Sphinx / MkDocs
-# -----------------------------
-docs/_build/
-site/
-
-# -----------------------------
-# Docker
-# -----------------------------
-*.tar
-docker-compose.override.yml
-**/tmp/
-.docker/
-
-# -----------------------------
-# Chroma / LangChain vector DB
-# -----------------------------
-chroma_db/
-*.bin
-*.sqlite3
-
-# -----------------------------
-# Local/test files
-# -----------------------------
-test_api.sh
-test.ps1
-malicious_test.txt
-*.txt
-*.docx
-*.pdf
-rag_test_output/
-
-# -----------------------------
-# Secrets / keys
-# -----------------------------
-*.key
-*.pem
-.env
-TAVILY_API_KEY
-GROQ_API_KEY
-
-# -----------------------------
-# OS / miscellaneous
-# -----------------------------
+# OS
 .DS_Store
 Thumbs.db
-
-
-*.ps1
+.github/workflowss
