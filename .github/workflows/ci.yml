@@ -1,4 +1,4 @@
-name: CI Pipeline - Fixed Version
+name: CI Pipeline 
 
 on:
   push:
