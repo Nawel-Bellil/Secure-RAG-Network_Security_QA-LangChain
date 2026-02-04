@@ -26,7 +26,8 @@ upstream rag_backend {
     server instance_3:8000;
 }
 ```
-
+ 
+ 
 ### Forward Proxy
 ```
 Client → Proxy → Internet
